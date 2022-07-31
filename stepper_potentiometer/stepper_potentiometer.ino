@@ -15,7 +15,7 @@ int val = analogRead(0);
 int diff = val-previous;
 
 void setup() {
-  // set the speed of the motor to 30 RPMs
+  // set the speed of the motor to (RPM)
   stepper.setSpeed(240);
   Serial.println("===========");
 

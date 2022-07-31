@@ -1,11 +1,29 @@
-//  ================================
+//  ======  GLOBALS  ===========
+//  ============================
 int anal_0 = analogRead(0);
 int anal_1 = analogRead(1);
- int ind_loop = 13;
- int ind_butt_press = 6;
- 
-//  ================================
+ int ind_loop = 13; // LED output to see loop is looping
+ int ind_butt_press = 6; LED to show button has been pressed
 
+#include <Stepper.h>
+
+// change this to the number of steps on your motor
+const int STEPS = 64;
+
+// create an instance of the stepper class, specifying
+// the number of steps of the motor and the pins it's
+// attached to
+Stepper stepper(STEPS, 8, 9, 10, 11);
+
+// the previous reading from the analog input
+int previous = anal_0;
+int val = anal_0;
+int diff = val-previous;
+
+
+//-----------------------------------------------------------------
+
+//  ========  setup() initialisation ===========
 void setup() {
  //Define inputs and outputs
  pinMode(ind_loop,OUTPUT);
@@ -13,7 +31,9 @@ void setup() {
  
  Serial.begin (9600);
 }
+//---------------------------------------------------------------------
 
+//  ==============main loop ======================
 void loop() {
   // put your main code here, to run repeatedly:
 
@@ -30,9 +50,9 @@ Serial.print("loop");
 Serial.println();
 Serial.println();
 digitalWrite(ind_loop,HIGH); // start loop indicator pulse (LED ON)
-delay(99);
+delay(9);
 digitalWrite(ind_loop,LOW); // end loop indicator pulse (LED OFF)
-delay(500);
+delay(2);
 if (anal_1 <10) {
   digitalWrite(ind_butt_press,LOW); // reset button indicator pulse (LED OFF
 }
