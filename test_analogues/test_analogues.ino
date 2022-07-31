@@ -22,17 +22,17 @@ anal_1 = analogRead(1);
 if (anal_1 >10) {
   digitalWrite(ind_butt_press,HIGH); // send button indicator pulse (LED ON)
 }
-Serial.print("A0 = ");
+Serial.print("analogue_0= ");
 Serial.println(anal_0);
-Serial.print("A1 = ");
+Serial.print("analogue_1 = ");
 Serial.println(anal_1);
 Serial.print("loop");
 Serial.println();
 Serial.println();
 digitalWrite(ind_loop,HIGH); // start loop indicator pulse (LED ON)
-delay(9);
+delay(99);
 digitalWrite(ind_loop,LOW); // end loop indicator pulse (LED OFF)
-delay(2);
+delay(500);
 if (anal_1 <10) {
   digitalWrite(ind_butt_press,LOW); // reset button indicator pulse (LED OFF
 }
