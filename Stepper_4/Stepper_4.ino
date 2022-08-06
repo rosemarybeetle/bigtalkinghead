@@ -18,11 +18,16 @@
 // Global variables
 // ============== my additions ===================================
 
-int pot_in = analogRead(0);
-int eye_position = 0; // initialise position flag
+int pot_in = analogRead(0); // reads value from potentiometer on pin A0
+int eye_position = 0; // initialise position flag - 0 represents centered
+int sectors_max = 4; // designates maximum number of sectors of travel (NB could be dynamic)
+int steps_max = 2048/sectors_max; // designates maximum number of stepper motor steps (for the BYJ48, this is one quarter = 90 degrees)
+int steps_per_sector = steps_max/sectors_max; // dymanamically calculates the steps needed to complete a sector;
+int HLmax = -sectors_max; // indicates maximum sectors of left hand rotation
+int HRmax = sectors_max;  // indicates maximum sectors of left hand rotation
 int trigger = 0; // initialise activity trigger flag
-int execute_delay = 60; //  variable to control how long to wait before executing the next step in the motor
-int pause = 2000; //  variable to control how long to wait between loops
+int execute_delay = 6; //  variable to control how long to wait before executing the next step in the motor
+int pause = 20; //  variable to control how long to wait between loops
 
 //  ==============   originals ====================================
 #define IN1  8  // define constant for input 1
@@ -30,10 +35,10 @@ int pause = 2000; //  variable to control how long to wait between loops
 #define IN3  10 // define constant for input 3
 #define IN4  11 // define constant for input 4
 int Steps = 0;  // initilise variable for counting steps??
-boolean Direction = true;  // gre
-unsigned long last_time;  // (https://www.arduino.cc/reference/en/language/variables/data-types/unsignedlong/)
+boolean Direction = true;  // flag to treck direction of travel
+unsigned long last_time;  // used to record last time captured to compare against currebnt time (https://www.arduino.cc/reference/en/language/variables/data-types/unsignedlong/)
 unsigned long currentMillis ; // timer variable used in loop()
-int steps_left= 4095; // step counter variable - this represents how many steps are left to execut, NOT steps TO the left
+int steps_remaining = 0; // step counter variable = number of remaining steps to execute in any one action
 long time; // time reference used in loop comparisons
 // ===============   end originals =================================
 void setup(){
@@ -46,128 +51,119 @@ void setup(){
 
 void loop(){
   pot_in = analogRead(0);
-  Serial.print("pot_in = ");
-  Serial.println(pot_in);
-  if (trigger==0) {
+  //Serial.print("pot_in = "); // send control potentiometer value each loop (text part of message)
+  //Serial.println(pot_in); // ditto - this is the variable
+  if (trigger==0) { // "trigger" flag prevents an action being triggered if one is already in progress - only one sector move is allowed at one time
   
-  if (pot_in <300) {
-   if (eye_position != -1){ // don't go left if already at maximum left
-   steps_left=1024; // 1024 steps = 90 degrees
-   go_left();  // launch code to go left 90 degrees or (-1024 steps from centered)
-   }
-  } 
+  //  ====================  go_left detector ==============
+      if (pot_in <300) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get triggered accidentally
+       Serial.println("inside go_left DETECTOR"); // 
+       if (eye_position != HLmax){ // don't go left if already at maximum left eye position allowed (set by HLmax)
+         steps_remaining=steps_per_sector; // set steps to move to the correct number steps within the defined sector size
+         go_left();  // launch function to go left by steps_by_sector
+        }  //  end  if(eye_position != HLmax) ==
+      }  //  end  =========if(pot_in <300) ===
+  //  ====================  end left ======================
   
-  if (pot_in >800)
-  {
-    if (eye_position != 1){ // don't go left if already at maximum left
-   steps_left=1024; // 1024 steps = 90 degrees
-    go_right(); // launchj code to go to 90 degrees right position (+1024 steps from centered)
-   }
- 
-  }
+  //  ====================  go right detector    =========
+      if (pot_in >800) { // catch-all right hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get triggered accidentally
+        Serial.println("inside go_right DETECTOR"); // 
+        if (eye_position != HRmax){ // don't go left if already at maximum left
+          steps_remaining=steps_per_sector; // set steps to move to the correct number steps within the defined sector size
+          go_right(); // launch funbction to go right by steps_by_sector
+        } // end ======== eye (eye_position != HRmax)
+       } // end  ======== if(pot_in > 800 )===========
 
-  if (pot_in >301) {
-  recentre();
-  }
-  
- }
+  }  // end ========= if(trigger==0)   ===========
 
   
-}//end of loop
+}  
 
 void go_left() {
-  if (eye_position==0){
-    eye_position=-1;
-  }
-  if (eye_position==1){
-    eye_position=0;
-  }
+  trigger=1; // disables triggering of actions until this function has fully executed
+  Direction=false; // set direction of travel to be left
   Serial.println("inside go_left()");
+  Serial.print("eye_position before execute = ");
+  Serial.println(eye_position);
+  Serial.print("trigger = ");
+  Serial.println(trigger);
+  if (eye_position>HLmax){  // check we are not at max left position allowed
+    eye_position--; // decrement eye_position if not at max left position
+  }
+ 
   // ====================
-  trigger=1;
+
   
-  while(steps_left>0){  // initialised at 1024 above, so will start
+  while(steps_remaining>0){  // initialised at steps_per_sector when function was called, so this will start loop
   currentMillis = micros();  // set currentMillis to the microseconds since script started running using micros()(loops at 70 minutes)
   if(currentMillis-last_time>=execute_delay){ // Timer check logic - "last_time" is a positive "long" (assume default value = 0). 
   stepper(1); // call function stepper with parameter 1
   time=time+micros()-last_time;
   last_time=micros(); // reset "last_time" to script clock using micros()
-  steps_left--; // decrement "steps_left" by 1
-  Serial.print("Steps_left = ");
-  Serial.println(steps_left);
+  steps_remaining--; // decrement "steps_remaining" by 1
+  Serial.print("steps_remaining = ");
+  Serial.println(steps_remaining);
   }  // end while loop ================
   
   }
-   Serial.println(time); // once loop has finished, print message to port
+  Serial.println(time); // once loop has finished, print message to port
   Serial.println("Wait...!"); // ditto
   Serial.println("=============");
-  delay(pause); // wait 2 seconds (not sure why)
-  if (eye_position==-1) {
-    Direction=!Direction;
-  }
+  delay(pause); // wait a bit (not sure why)
   
-  // steps_left=4095;
-  //steps_left=4095; // reset "steps_left" to 4095
+  
+ 
+  
+ 
 
   //  ====================================
-  Serial.println("inside go_left()");
-  Serial.println();//
-  Serial.print("trigger = ");
-  Serial.println(trigger);
-  Serial.print("eye_position = ");
-  Serial.println(eye_position);
-  //}
+
+  //
   trigger=0; // reset trigger to stop signals overriding
+  Serial.print("eye_position after execute = ");
+  Serial.println(eye_position);
 } // end =============   void go_left()=============
 
  void go_right() {
-  Serial.println("inside go_right()");
- if (eye_position==0){
-    eye_position=1;
-  }
-  if (eye_position==-1){
-    eye_position=0;
-  }
-  // ====================
   trigger=1;
-  
-  while(steps_left>0){  // initialised at 1024 above, so will start
+  Direction=1; // set direction of travel to be right
+  Serial.println("inside go_right()");
+  Serial.print("eye_position before execute = ");
+  Serial.println(eye_position);
+  Serial.print("trigger = ");
+  Serial.println(trigger);
+  if (eye_position!=HRmax){  // check we are not at max right position allowed
+    eye_position++; // increment eye_position if not at max right position
+  }
+ 
+  // ====================
+   
+  while(steps_remaining>0){  // initialised at steps_per_sector above, so will start
   currentMillis = micros();  // set currentMillis to the microseconds since script started running using micros()(loops at 70 minutes)
   if(currentMillis-last_time>=execute_delay){ // Timer check logic - "last_time" is a positive "long" (assume default value = 0). 
   stepper(1); // call function stepper with parameter 1
   time=time+micros()-last_time;
   last_time=micros(); // reset "last_time" to script clock using micros()
-  steps_left--; // decrement "steps_left" by 1
-  Serial.print("Steps_left = ");
-  Serial.println(steps_left);
+  steps_remaining--; // decrement "steps_remaining" by 1
+  Serial.print("steps_remaining = ");
+  Serial.println(steps_remaining);
   }  // end while loop ================
   
   }
-   Serial.println(time); // once loop has finished, print message to port
+  Serial.println(time); // once loop has finished, print message to port
   Serial.println("Wait...!"); // ditto
   Serial.println("=============");
   delay(pause); // wait 2 seconds (not sure why)
-  if (eye_position==1) {
-    Direction=!Direction;
-  }
   
-  // steps_left=4095;
-  //steps_left=4095; // reset "steps_left" to 4095
+  Serial.print("eye_position after execute = ");
+  Serial.println(eye_position);
 
   //  ====================================
-  Serial.println("inside go_left()");
-  Serial.println();//
-  Serial.print("trigger = ");
-  Serial.println(trigger);
-  Serial.print("eye_position = ");
-  Serial.println(eye_position);
-  //}
-  trigger=0; // reset trigger to stop signals overriding
-    
- }
+  
 
-void recentre()  {
-  }
+  trigger=0; // reset trigger to stop signals overriding
+   
+ }
 
  void stepper(int xw){ // step function 
   for (int x=0;x<xw;x++){
