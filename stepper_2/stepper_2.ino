@@ -18,7 +18,7 @@ int Steps = 0;  // initilise variable for counting steps??
 boolean Direction = true;  // gre
 unsigned long last_time;  // (https://www.arduino.cc/reference/en/language/variables/data-types/unsignedlong/)
 unsigned long currentMillis ; // timer variable used in loop()
-int steps_left=4095; // step counter variable
+int steps_left= 4095; // step counter variable - this represents how many steps are left to execut, NOT steps TO the left
 long time; // time reference used in loop comparisons
 void setup()
 {
@@ -38,14 +38,17 @@ void loop()
   stepper(1); // call function stepper with parameter 1
   time=time+micros()-last_time;
   last_time=micros(); // reset "last_time" to script clock using micros()
-  steps_left--;
+  steps_left--; // decrement "steps_left" by 1
+  Serial.print("Steps_left = ");
+  Serial.println(steps_left);
   }
   }
    Serial.println(time); // once loop has finished, print message to port
   Serial.println("Wait...!"); // ditto
+  Serial.print("Steps_left = ");
+  Serial.println(steps_left);
   delay(2000); // wait 2 seconds (not sure why)
   Direction=!Direction;
-  // steps_left=4095;
   steps_left=4095; // reset "steps_left" to 4095
 }
 
