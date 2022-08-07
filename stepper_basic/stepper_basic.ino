@@ -33,10 +33,10 @@ or make donation using PayPal http://robojax.com/L/?id=64
  */
 
 
-int Pin1 = 10; 
-int Pin2 = 11; 
-int Pin3 = 12; 
-int Pin4 = 13; 
+int Pin1 = 8; 
+int Pin2 = 9; 
+int Pin3 = 10; 
+int Pin4 = 11; 
 int _step = 0; 
 boolean dir = true;// false=clockwise, true=counter clockwise
 int count=0;
