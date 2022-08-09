@@ -53,7 +53,7 @@ void setup() {
 void loop() {
   pot_in = analogRead(0);
    Serial.print("pot_in = "); // send control potentiometer value each loop (text part of message)
-   // Serial.println(pot_in); // ditto - this is the variable
+   Serial.println(pot_in); // ditto - this is the variable
   if (trigger == 0) { // "trigger" flag prevents an action being triggered if one is already in progress - only one sector move is allowed at one time
 
     //  ====================  go_left detector ==============
