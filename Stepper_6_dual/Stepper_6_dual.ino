@@ -28,12 +28,12 @@ int Step_max = 2048 / sectors_max; // designates maximum number of stepper motor
 int Step_per_sector = Step_max / sectors_max; // dymanamically calculates the Step_LR needed to complete a sector;
 int HLmax = -sectors_max; // indicates maximum sectors of left hand rotation
 int HRmax = sectors_max;  // indicates maximum sectors of right hand rotation
-int VDmax = sectors_max; // indicates maximum sectors of downwards rotation
-int VUmax = -sectors_max;  // indicates maximum sectors of upwards rotation
+int VDmax = -sectors_max; // indicates maximum sectors of downwards rotation
+int VUmax = sectors_max;  // indicates maximum sectors of upwards rotation
 int trigger_LR = 0; // initialise activity trigger_LR flag
 int trigger_UD = 0; // initialise activity trigger_UD flag
 int execute_delay = 1; //  variable to control how long to wait before executing the next step in the motor
-int pause = 0; //  variable to control how long to wait between loops // make this 2000 for debugging, if needed
+int pause = 100; //  variable to control how long to wait between loops // make this 2000 for debugging, if needed
 
 //  ==============   originals ====================================
 #define IN1  8  // define constant for input 1
@@ -102,8 +102,10 @@ void loop() {
  }  // end ========= if(trigger_LR==0)   ===========
     // ++++++++++++++++++++++
 
+ if (trigger_UD == 0) { // "trigger_UD" flag prevents an up-down action being triggered if one is already in progress - only one sector move is allowed at one time
+    trigger_UD = 1;
     //  ====================  go_down detector ==============
-    if (pot_in_UD > 800) { // catch-all downwards thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
+    if (pot_in_UD < 300) { // catch-all downwards thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
        Serial.println("inside go_down DETECTOR"); //
       if (eye_position_UD != VDmax) { // don't go down if already at maximum down eye position allowed (set by VDmax)
         Step_remaining_UD = Step_per_sector; // set Step_LR to move to the correct number Step_LR within the defined sector size
@@ -113,10 +115,10 @@ void loop() {
         }
       
     }  //  end  =========if(pot_in_VD <300) ===
-    //  ====================  end down ======================
+    //  ====================  end down detector ======================
 
     //  ====================  go_up detector ==============
-    if (pot_in_UD < 300) { // catch-all upwards thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
+    if (pot_in_UD > 800) { // catch-all upwards thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
        Serial.println("inside go_up DETECTOR"); //
       if (eye_position_UD != VUmax) { // don't go down if already at maximum down eye position allowed (set by VDmax)
         Step_remaining_UD = Step_per_sector; // set Step_LR to move to the correct number Step_LR within the defined sector size
@@ -125,7 +127,10 @@ void loop() {
         Serial.println("Reached maximum down rotation limit VUmax");
         }
       
-    }  //  end  =========if(pot_in_VD >800) ===
+    }  //  end  =========if(pot_in_VD >800) ==
+    trigger_UD = 0;
+  }  // end ========= if(trigger_UD==0)   ===========
+ 
     //  ====================  end down ======================
     
     
@@ -164,7 +169,7 @@ void go_left() {
    Serial.println(time); // once loop has finished, print message to port
    Serial.println("Wait...!"); // ditto
    Serial.println("=============");
-  //delay(pause); // wait a bit (not sure why)
+  // delay(pause); // wait a bit (not sure why)
 
 
 
@@ -226,9 +231,9 @@ void go_right() {
 
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  go down
 void go_down() {
-  Serial.println("inside go down");
    trigger_UD = 1;
-  Direction_UD = 1; // set Direction_UD of travel to be right
+   Serial.println("inside go down");
+   Direction_UD = true; // set Direction_UD of travel to be down
    Serial.print("eye_position_UD before execute = ");
    Serial.println(eye_position_UD);
    Serial.print("trigger_UD = ");
@@ -236,7 +241,7 @@ void go_down() {
    Serial.print("Direction_UD = ");
    Serial.println(Direction_UD);
   if (eye_position_UD != VDmax) { // check we are not at max right position allowed
-    eye_position_UD++; // increment eye_position_UD if not at max right position
+    eye_position_UD--; // increment eye_position_UD if not at max right position
   }
 
   // ====================
@@ -248,15 +253,15 @@ void go_down() {
       time = time + micros() - last_time;
       last_time = micros(); // reset "last_time" to script clock using micros()
       Step_remaining_UD--; // decrement "Step_remaining_UD" by 1
-       Serial.print("Step_remaining_UD = ");
-       Serial.println(Step_remaining_UD);
+        Serial.print("Step_remaining_UD = ");
+        Serial.println(Step_remaining_UD);
     }  // end while loop ================
 
   }
    Serial.println(time); // once loop has finished, print message to port
    Serial.println("Wait...!"); // ditto
    Serial.println("=============");
-  //delay(pause); // wait 2 seconds (not sure why)
+  // delay(pause); // wait 2 seconds (not sure why)
 
    Serial.print("eye_position_UD after execute = ");
    Serial.println(eye_position_UD);
@@ -271,7 +276,7 @@ void go_down() {
 void go_up() {
   Serial.println("inside go up");
    trigger_UD = 1; // set up down direction up
-  Direction_UD = false; // set Direction_UD of travel to be up
+  Direction_UD = 0; // set Direction_UD of travel to be up
    Serial.println("inside go_up()");
    Serial.print("eye_position_UD before execute = ");
    Serial.println(eye_position_UD);
@@ -281,7 +286,7 @@ void go_up() {
    Serial.println(Direction_UD);
 
   if (eye_position_UD != VUmax) { // check we are not at max right position allowed
-    eye_position_UD--; // increment eye_position_UD if not at max UP position
+    eye_position_UD++; // increment eye_position_UD if not at max UP position
   }
 
   // ====================
@@ -293,8 +298,8 @@ void go_up() {
       time = time + micros() - last_time;
       last_time = micros(); // reset "last_time" to script clock using micros()
       Step_remaining_UD--; // decrement "Step_remaining_UD" by 1
-       Serial.print("Step_remaining_UD = ");
-       Serial.println(Step_remaining_UD);
+        Serial.print("Step_remaining_UD = ");
+        Serial.println(Step_remaining_UD);
     }  // end while loop ================
 
   }
@@ -314,7 +319,7 @@ void go_up() {
 // ---------------------------------
 
 void stepper_LR(int xw) { // step function
-  for (int x = 0; x < xw; x++) {
+   for (int x = 0; x < xw; x++) {
     switch (Step_LR) {
       case 0:
         digitalWrite(IN1, LOW);
@@ -395,8 +400,10 @@ void SetDirection_LR() {
 
 // =================================
 void stepper_UD(int xw) { // step function
+  
   for (int x = 0; x < xw; x++) {
     switch (Step_UD) {
+  
       case 0:
         digitalWrite(IN5, LOW);
         digitalWrite(IN6, LOW);
