@@ -33,7 +33,7 @@ int VUmax = sectors_max;  // indicates maximum sectors of upwards rotation
 int trigger_LR = 0; // initialise activity trigger_LR flag
 int trigger_UD = 0; // initialise activity trigger_UD flag
 int execute_delay = 1; //  variable to control how long to wait before executing the next step in the motor
-int pause = 100; //  variable to control how long to wait between loops // make this 2000 for debugging, if needed
+int pause = 5; //  variable to control how long to wait between loops // make this 2000 for debugging, if needed
 
 //  ==============   originals ====================================
 #define IN1  8  // define constant for input 1
