@@ -17,6 +17,7 @@
 #include <Servo.h> // Include the Servo library 
 int pot_in_LR = analogRead(0); // reads value from potentiometer on pin A0 (left - right)
 int pot_in_UD = analogRead(1); // reads value from potentiometer on pin A1 (up - down)
+int pot_in_recentre = analogRead(2); // reads value from button switch on pin A2 (recentre)
 int eye_position_LR = 90; // initialise left-right position flag with servo - 90 represents centered
 int eye_position_UD = 90; // initialise up-down position with servo - 90 represents centered
 int centre = 90; // degrees for centered position (90 for a 180 degree servo)
@@ -24,7 +25,7 @@ int left_max = 0; // indicates maximum degrees of left hand rotation from centre
 int right_max = 180; // indicates maximum degrees of right hand rotation from centre
 int down_max = 0; // indicates maximum degrees of downwards rotation from centre
 int up_max = 180; // indicates maximum degrees of upwards rotation from centre
-int delay_smoothing = 20; // used to delay a signal, to check so that analogue signals don't get caught by the loop too quickly causing one to supercede another before it has happened
+int delay_smoothing = 10; // used to delay a signal, to check so that analogue signals don't get caught by the loop too quickly causing one to supercede another before it has happened
 int threshold_L = 1000; // analogue signal over which a move is triggered left
 int threshold_R = 10; // analogue signal over which a move is triggered right
 int threshold_D = 800; // analogue signal over which a move is triggered down
@@ -73,6 +74,13 @@ void loop() {
   }
   pot_in_LR = analogRead(0); // check left-right pot control value via analogue 0 
   pot_in_UD = analogRead(1); // check up-down pot control value via analogue 1 
+  pot_in_recentre = analogRead(2); // reads value from button switch on pin A2 (recentre)
+  if (pot_in_recentre==0){ // reset eyes to centre if button is pressed
+    servo_LR.write(90); // centre servo_LR
+    servo_UD.write(90); // centre servo_UD
+  }
+  // Serial.print("pot_in_recentre"); //for debugging if switch is working
+  // Serial.println(pot_in_recentre); //for debugging if switch is working
   
   //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
   //  ====================  go_left detector ============================
