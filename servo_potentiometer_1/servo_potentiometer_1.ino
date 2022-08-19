@@ -1,56 +1,52 @@
 /*
 
-  ===================  credits  =========================
+  ===================  Servo script  =========================
+  rosemarybeetle - basic 2 servo script to
+  - use two potentiometers to control eyeball tracking in two dimensions
+  - left-right and up-down
+  https://makingweirdstuff.blogspot.com
   
 */
 
 
-// ==================================================================
-// ============== Global variables ===================================
-// ===================================================================
+// ===============================================================================
+// ============== declaring global variables and including libraries etc =========
+// ===============================================================================
 
 
 #include <Servo.h> // Include the Servo library 
 int pot_in_LR = analogRead(0); // reads value from potentiometer on pin A0 (left - right)
 int pot_in_UD = analogRead(1); // reads value from potentiometer on pin A1 (up - down)
-int servo_speed = 10; // controls servo speed if needed by adding pauses
 int eye_position_LR = 90; // initialise left-right position flag with servo - 90 represents centered
 int eye_position_UD = 90; // initialise up-down position with servo - 90 represents centered
-int degrees_per_move = 10; // designates degrees of travel per move
-int position_max_LR = 90; // (must be <90) maximum left or right fotation from centre(for the servo, this is one quarter = 90 degrees in either direction)
-int position_max_UD = 90; // (must be <90) designates maximum left or right fotation from centre(for the servo, this is one quarter = 90 degrees in either direction)
 int centre = 90; // degrees for centered position (90 for a 180 degree servo)
-int left_max = centre - position_max_LR; // indicates maximum degrees of left hand rotation from centre
-int right_max = centre + position_max_LR; // indicates maximum degrees of right hand rotation from centre
-int down_max = centre - position_max_UD; // indicates maximum degrees of downwards rotation from centre
-int up_max = centre + position_max_UD; // indicates maximum degrees of upwards rotation from centre
-
+int left_max = 0; // indicates maximum degrees of left hand rotation from centre
+int right_max = 180; // indicates maximum degrees of right hand rotation from centre
+int down_max = 0; // indicates maximum degrees of downwards rotation from centre
+int up_max = 180; // indicates maximum degrees of upwards rotation from centre
+int delay_smoothing = 20; // used to delay a signal, to check so that analogue signals don't get caught by the loop too quickly causing one to supercede another before it has happened
+int threshold_L = 1000; // analogue signal over which a move is triggered left
+int threshold_R = 10; // analogue signal over which a move is triggered right
+int threshold_D = 800; // analogue signal over which a move is triggered down
+int threshold_U = 100; // analogue signal over which a move is triggered up
 int trigger_LR = 0; // initialise activity trigger_LR flag
 int trigger_UD = 0; // initialise activity trigger_UD flag
-int execute_delay = 1; //  @@@ ??? @@@ variable to control how long to wait before executing the next step in the motor
-int pause = 5; //  @@@ ??? @@@ variable to control how long to wait between loops // make this 2000 for debugging, if needed
 
 int servo_pin_LR = 2; // servo control output for left-right servo
 int servo_pin_UD = 3; // servo control output for up-down servo
-int Step_LR = 0;  // initilise variable for counting Step_LR
-int Step_UD = 0;  // initilise variable for counting Step_LR
 
-int move_LR_deg = 10; // initialise movement increment (degrees)for left-right
-int move_UD_deg = 10; // initialise movement increment (degrees)for up-down
+int degrees_per_move_LR = 10; // initialise movement increment (degrees)for left-right
+int degrees_per_move_UD = 10; // initialise movement increment (degrees)for up-down
 
+int loop_count = 0;
+int loop_count_max=50;
 Servo servo_LR; // declare left right servo
 Servo servo_UD; // declare up-down servo
-
-unsigned long last_time;  // used to record last time captured to compare against current time (https://www.arduino.cc/reference/en/language/variables/data-types/unsignedlong/)
-unsigned long currentMillis ; // timer variable used in loop()
-int Step_remaining_LR = 0; // step counter variable = number of remaining left-right Step_LR to execute in any one action
-int Step_remaining_UD = 0; // step counter variable = number of remaining up-down Step_LR to execute in any one action
-long time; // time reference used in loop comparisons
 
 // ===============   end global variables  =================================
 // =========================================================================
 void setup() {
-  Serial.begin(57600);  // initiate port connection
+  Serial.begin(57600);  // initiate port connection - used here for debugging
   pinMode(servo_pin_LR, OUTPUT);  // define pin modes of servo_pin_LR for left right control signal
   pinMode(servo_pin_UD, OUTPUT);  // define pin modes of servo_pin_UD for up down control signal
   servo_LR.attach(servo_pin_LR); // attaches servo_LR to control_pin_LR  
@@ -58,47 +54,53 @@ void setup() {
   servo_LR.write(eye_position_LR); // centre servo_LR
   servo_UD.write(eye_position_UD); // centre servo_UD
  
-}// end of setup
+ 
+}
+// ====================== end of setup ===============================
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+
+//  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//  ===================== start of loop()=============================
 void loop() {
-
-  //servo_LR.write(eye_position_LR);
-  //servo_UD.write(eye_position_UD);  
- 
- 
-
-  pot_in_LR = analogRead(0);
-  pot_in_UD = analogRead(1);   
+  if (loop_count<loop_count_max)
+  {
+    loop_count++;
+  } else {
+    Serial.print("loop_count_max = ");
+   Serial.println(loop_count_max);
+     loop_count=0;
+  }
+  pot_in_LR = analogRead(0); // check left-right pot control value via analogue 0 
+  pot_in_UD = analogRead(1); // check up-down pot control value via analogue 1 
   
-     //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-     //  ====================  go_left detector =======================
-    if (trigger_LR==0){
-      trigger_LR=1;
-      if (pot_in_LR >800) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
-        Serial.print("pot_in_LR = ");
-        Serial.println(pot_in_LR);
-        Serial.println("inside go_left DETECTOR and moving"); //
-        trace_move_degrees();
-        Serial.print("eye_position_LR=");
-        Serial.println(eye_position_LR);
-        
+  //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  //  ====================  go_left detector ============================
+    if (trigger_LR==0){ // check if trigger is set for left-right checking
+      trigger_LR=1; // if not set, then set left-right trigger to lock the function from being called again until it has finished
+      if (pot_in_LR >threshold_L) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
+        Serial.print("pot_in_LR = "); // debug trace
+        Serial.println(pot_in_LR);  // debug trace
+        Serial.println("inside go_left DETECTOR and moving"); // debug trace to say where we are
         Serial.print("eye_position_LR=");
         Serial.println(eye_position_LR);
         if (eye_position_LR > left_max) { // don't go right if already at maximum right
-                        eye_position_LR -= move_LR_deg;
+            eye_position_LR -= degrees_per_move_LR; // decrement by left-right degree per move setting
             servo_LR.write(eye_position_LR);
-            } else {
-            eye_position_LR=left_max;
-            Serial.println("Reached maximum lefthand rotation limit (left_max)");
+            Serial.print("eye_position_LR=");
+            Serial.println(eye_position_LR);
+            } else { // Checks if calculation would exceed left limit
+            eye_position_LR=left_max; // if so, restricts eye position to be left limit
+            servo_LR.write(eye_position_LR); // then writes to servo 
+            Serial.println("Reached maximum lefthand rotation limit (left_max)"); // debug trace
         }
        
  
       }  //  end  =========if(pot_in_LR > 800) ===
-       else {  
-           
-      //Serial.println("trigger_LR =1");
+       else {  // optional else where degugging can be placed
+        // e.g. - Serial.println("some message");
       }
-      delay(20);
+      delay(delay_smoothing);
        trigger_LR=0; // reset trigger
     }
     //  ====================  end left detector ========================
@@ -109,17 +111,14 @@ void loop() {
     //  ====================  go right detector    =====================
       if (trigger_LR==0){
       trigger_LR=1;
-      if (pot_in_LR < 300) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
-         Serial.print("pot_in_LR = ");
-         Serial.println(pot_in_LR);
+      if (pot_in_LR < threshold_R) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
+        Serial.print("pot_in_LR = ");
+        Serial.println(pot_in_LR);
         Serial.println("inside go_right DETECTOR and moving"); //
-        trace_move_degrees();
         Serial.print("eye_position_LR=");
         Serial.println(eye_position_LR);
-        
-        
         if (eye_position_LR < right_max) { // don't go right if already at maximum right
-                        eye_position_LR += move_LR_deg;
+            eye_position_LR += degrees_per_move_LR;
             servo_LR.write(eye_position_LR);
             } else {
             eye_position_LR=right_max;
@@ -128,100 +127,80 @@ void loop() {
        
  
       }  //  end  =========if(pot_in_LR > 800) ===
-       else {  
-           
-      //Serial.println("trigger_LR =1");
+       else { // optional else where degugging can be placed
+        // e.g. - Serial.println("some message");
       }
-       delay(20);
+       delay(delay_smoothing);
        trigger_LR=0; // reset trigger
     }
-    
-    
-    // end  ======== go right detector - if(pot_in_LR > 800 )==========
-    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    // ==========   end go right detector - if(pot_in_LR > 800 )==========
+    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
  
-     
-    //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    //  ====================  start go_down detector =============
-    if (pot_in_UD < 300) { // catch-all downwards thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
-       Serial.println("inside go_down DETECTOR"); //
-      if (eye_position_UD > down_max) { // don't go down if already at maximum down eye position allowed (set by VDmax)
-         go_down();  // launch function to go left by Step_by_sector
-      }   else { 
-        Serial.println("Reached maximum down rotation limit(down_mx)");
+    // >>>>>>>>>>  go down detector  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    // ===================================================================
+    if (trigger_UD==0){ // check if trigger is set for up-down checking
+      trigger_UD=1; // if not set, then set - trigger to lock the function from being called again until it has finished
+      if (pot_in_UD >threshold_D) { // catch-all down hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get triggered accidentally
+        Serial.print("pot_in_UD = "); // debug trace
+        Serial.println(pot_in_UD);  // debug trace
+        Serial.println("inside go_down DETECTOR and moving"); // debug trace to say where we are
+        Serial.print("eye_position_UD=");
+        Serial.println(eye_position_UD);
+        if (eye_position_UD > down_max) { // don't go down if aUDeady at maximum down
+            eye_position_UD -= degrees_per_move_UD; // increment by up-down degree per move setting
+            servo_UD.write(eye_position_UD);
+            Serial.print("eye_position_UD=");
+            Serial.println(eye_position_UD);
+            } else { // Checks if calculation would exceed down limit
+            eye_position_UD=down_max; // if so, restricts eye position to be down limit
+            servo_UD.write(eye_position_UD); // then writes to servo 
+            Serial.println("Reached maximum downhand rotation limit (down_max)"); // debug trace
         }
-          }  //  ============  end down detector=============== =========
-    //  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    
-    //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    //  ====================  go_up detector ======================
-    if (pot_in_UD > 800) { // catch-all upwards thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
-       Serial.println("inside go_up DETECTOR"); //
-      if (eye_position_UD < up_max) { // don't go down if already at maximum down eye position allowed (set by VDmax)
-          go_up();  // launch function to go left by Step_by_sector
-      }   else { 
-        Serial.println("Reached maximum down rotation limit VUmax");
+       
+ 
+      }  //  end  =========if(pot_in_UD > thtreshold_D) ===
+       else {  // optional else where degugging can be placed
+        // e.g. - Serial.println("some message");
+      }
+      delay(delay_smoothing);
+       trigger_UD=0; // reset trigger
+    }
+    //  ====================  end down detector ========================
+    //  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+// >>>>>>>>>>  go up detector  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    // ===================================================================
+    if (trigger_UD==0){ // check if trigger is set for up-down checking
+      trigger_UD=1; // if not set, then set - trigger to lock the function from being called again until it has finished
+      if (pot_in_UD <threshold_U) { // catch-all up hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get triggered accidentally
+        Serial.print("pot_in_UD = "); // debug trace
+        Serial.println(pot_in_UD);  // debug trace
+        Serial.println("inside go_up DETECTOR and moving up"); // debug trace to say where we are
+        Serial.print("eye_position_UD=");
+        Serial.println(eye_position_UD);
+        if (eye_position_UD < up_max) { // don't go up if aUDeady at maximum up
+            eye_position_UD += degrees_per_move_UD; // increment by up-down degree per move setting
+            servo_UD.write(eye_position_UD);
+            Serial.print("eye_position_UD=");
+            Serial.println(eye_position_UD);
+            } else { // Checks if calculation would exceed up limit
+            eye_position_UD=up_max; // if so, restricts eye position to be up limit
+            servo_UD.write(eye_position_UD); // then writes to servo 
+            Serial.println("Reached maximum upward rotation limit (up_max)"); // debug trace
         }
-      
-    }  //  ========= end down detector - if(pot_in_VD >800) ==
-    //     <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+       
+ 
+      }  //  end  =========if(pot_in_UD < threshold_U) ===
+       else {  // optional else where degugging can be placed
+        // e.g. - Serial.println("some message");
+      }
+      delay(delay_smoothing);
+       trigger_UD=0; // reset trigger
+    }
+    //  ====================  end down detector ========================
+    //  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
     
+  
 }  // ==========  end void loop () ================================
 //   <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-//  ==================== start go_left() ==========================
-void go_left() {
- 
-}  // ==================== end go_left() ============================
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// ======================= start go_right() ==========================
-void go_right(){
-    trace_move_degrees();
-    Serial.print("eye_position_LR=");
-    Serial.println(eye_position_LR);
-    eye_position_LR+=move_LR_deg;
-     if (eye_position_LR < right_max) { // don't go right if already at maximum right
-      servo_LR.write(eye_position_LR);
-      } // end ======== eye (eye_position_LR != HRmax)
-      else {
-        eye_position_LR=right_max;
-        Serial.println("Reached maximum right rotation limit (right_max)");
-        }
-}  // ==================== end go_right() ============================
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// ======================= start go_down() ==========================
-void go_down(){
-    trace_move_degrees();
-}  // ==================== end go_down()() ============================
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// =======================start go_up() ==========================
-void go_up(){
-    trace_move_degrees();
-
-}  // ==================== end go_up() ============================
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-//  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-//  ====================== start trace_move_degrees() ==========================
-void trace_move_degrees() {
-
-   Serial.print("move_LR_deg = "); // send left-right degree each loop (text part of message)
-   Serial.println(move_LR_deg); // ditto - this is the variable
-   Serial.print("move_UD_deg = "); // send up-down control potentiometer value each loop (text part of message)
-   Serial.println(move_UD_deg); // ditto - this is the variable
-
-}
-  
