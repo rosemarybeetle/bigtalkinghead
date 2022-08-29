@@ -34,13 +34,20 @@ int trigger_LR = 0; // initialise activity trigger_LR flag
 int trigger_UD = 0; // initialise activity trigger_UD flag
 
 int servo_pin_LR = 2; // servo control output for left-right servo
-int servo_pin_UD = 3; // servo control output for up-down servo
+int servo_pin_UD = 3; // servo control output for up-down servoint left_flash = 8;
+int flash_butt = 13; // define output for button press indicator LED
+int flash_left = 11; // define output for left indicator LED
+int flash_right = 10; // define output for right indicator LED
+int flash_down = 9;  // define output for down indicator LED
+int flash_up = 8;  // define output for up indicator LED
 
 int degrees_per_move_LR = 10; // initialise movement increment (degrees)for left-right
 int degrees_per_move_UD = 10; // initialise movement increment (degrees)for up-down
 
 int loop_count = 0;
 int loop_count_max=50;
+int button_lag_check=0;
+int button_lag_threshold=70; //  this stops button presses triggering in quick succession interfering with directional inputs
 Servo servo_LR; // declare left right servo
 Servo servo_UD; // declare up-down servo
 
@@ -50,6 +57,11 @@ void setup() {
   Serial.begin(57600);  // initiate port connection - used here for debugging
   pinMode(servo_pin_LR, OUTPUT);  // define pin modes of servo_pin_LR for left right control signal
   pinMode(servo_pin_UD, OUTPUT);  // define pin modes of servo_pin_UD for up down control signal
+  pinMode(flash_butt, OUTPUT);
+  pinMode(flash_left, OUTPUT);
+  pinMode(flash_right, OUTPUT);
+  pinMode(flash_down, OUTPUT);
+  pinMode(flash_up, OUTPUT);
   servo_LR.attach(servo_pin_LR); // attaches servo_LR to control_pin_LR  
   servo_UD.attach(servo_pin_UD); // attaches servo_UD to control_pin_UD
   servo_LR.write(eye_position_LR); // centre servo_LR
@@ -64,29 +76,64 @@ void setup() {
 //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //  ===================== start of loop()=============================
 void loop() {
-  if (loop_count<loop_count_max)
+
+  //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  
+  //  ------  manage loop timers -------------------------------------
+  if (loop_count<loop_count_max) // only used for debugging (to indicate the loop duration)
   {
     loop_count++;
   } else {
-    Serial.print("loop_count_max = ");
+   Serial.print("loop_count_max = ");
    Serial.println(loop_count_max);
      loop_count=0;
   }
+
+  if (button_lag_check<button_lag_threshold) // increments timer to stop button presses happening repeatedly if a finger is released slowly
+  {
+    button_lag_check++;
+  } else {
+   Serial.print("button_check_threshold reached at ");
+   Serial.print(button_lag_threshold);
+   Serial.println(" loops");
+     
+  }
+  //  ----------------  end loop timer check  ------------------------
+  //  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+  
+  // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  //-----------   check all analogue inputs each loop() sweep  ---------------------
+  
   pot_in_LR = analogRead(0); // check left-right pot control value via analogue 0 
   pot_in_UD = analogRead(1); // check up-down pot control value via analogue 1 
   pot_in_recentre = analogRead(2); // reads value from button switch on pin A2 (recentre)
+
+  //  ---------------------  end check pots ---------------------------------
+  // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+  // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  // ---------------  check for eye position reset  -------------------------
   if (pot_in_recentre==0){ // reset eyes to centre if button is pressed
-    servo_LR.write(90); // centre servo_LR
-    servo_UD.write(90); // centre servo_UD
+      digitalWrite(flash_butt,LOW);
+      Serial.println("button pressed");
+      if (button_lag_check==button_lag_threshold){ 
+      digitalWrite(flash_butt,HIGH);
+      servo_LR.write(90); // centre left/right (servo_LR)
+      servo_UD.write(90); // centre up/down (servo_UD)
+      button_lag_check=0;
+      }  else {
+      Serial.println("button press not effective till threshold met");
+      }
   }
-  // Serial.print("pot_in_recentre"); //for debugging if switch is working
-  // Serial.println(pot_in_recentre); //for debugging if switch is working
+  // ---------------------  end recentre panic button  ------------------
+  // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   
   //  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  //  ====================  go_left detector ============================
+  //  =====================   go_left detector  =========================
     if (trigger_LR==0){ // check if trigger is set for left-right checking
       trigger_LR=1; // if not set, then set left-right trigger to lock the function from being called again until it has finished
+      digitalWrite(flash_left,LOW);
       if (pot_in_LR >threshold_L) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
+        digitalWrite(flash_left,HIGH);
         Serial.print("pot_in_LR = "); // debug trace
         Serial.println(pot_in_LR);  // debug trace
         Serial.println("inside go_left DETECTOR and moving"); // debug trace to say where we are
@@ -119,7 +166,9 @@ void loop() {
     //  ====================  go right detector    =====================
       if (trigger_LR==0){
       trigger_LR=1;
+      digitalWrite(flash_right,LOW);
       if (pot_in_LR < threshold_R) { // catch-all left hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get trigger_LRed accidentally
+        digitalWrite(flash_right,HIGH);
         Serial.print("pot_in_LR = ");
         Serial.println(pot_in_LR);
         Serial.println("inside go_right DETECTOR and moving"); //
@@ -148,7 +197,9 @@ void loop() {
     // ===================================================================
     if (trigger_UD==0){ // check if trigger is set for up-down checking
       trigger_UD=1; // if not set, then set - trigger to lock the function from being called again until it has finished
+      digitalWrite(flash_down,LOW);
       if (pot_in_UD >threshold_D) { // catch-all down hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get triggered accidentally
+        digitalWrite(flash_down,HIGH);
         Serial.print("pot_in_UD = "); // debug trace
         Serial.println(pot_in_UD);  // debug trace
         Serial.println("inside go_down DETECTOR and moving"); // debug trace to say where we are
@@ -180,7 +231,9 @@ void loop() {
     // ===================================================================
     if (trigger_UD==0){ // check if trigger is set for up-down checking
       trigger_UD=1; // if not set, then set - trigger to lock the function from being called again until it has finished
+      digitalWrite(flash_up,LOW);
       if (pot_in_UD <threshold_U) { // catch-all up hand thumb move detected on the control pot. this shouldn't be too close to the central value or it may get triggered accidentally
+        digitalWrite(flash_up,HIGH);
         Serial.print("pot_in_UD = "); // debug trace
         Serial.println(pot_in_UD);  // debug trace
         Serial.println("inside go_up DETECTOR and moving up"); // debug trace to say where we are
